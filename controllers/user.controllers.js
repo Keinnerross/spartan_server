@@ -1,6 +1,7 @@
 const pool = require("../db/db");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const { promisify } = require("util");
 
 const getUser = async (req, res) => {
   try {
@@ -41,10 +42,14 @@ const getSession = async (req, res) => {
     const login = async () => {
       const id = data[0].user_id;
       const token = await jwt.sign({ id: id }, process.env.JWT_SECRET);
-
       console.log(`Esto es un Token: ${token} generado por JWT`);
       await res.cookie("jwt", token);
       res.json("Login Correcto");
+    };
+
+    const logout = () => {
+      res.clearCookie("jwt");
+      return res.json("Logout successful  ");
     };
 
     /* Conditionals to req  */
@@ -68,13 +73,39 @@ const getSession = async (req, res) => {
         res.json("Usuario o contraseña incorrecta");
       }
     }
+
+    if (req.params.session == "logout") {
+      logout();
+    }
   } catch (error) {
     res.status(500).json(`Error: ${error}`);
   }
 };
 
-const logOut = ()=>{
-  
-}
+const isAutenticated = async (req, res, next) => {
+  if (req.cookies.jwt) {
+    try {
+      const decoded = promisify(jwt.verify)(
+        req.cookies.jwt,
+        process.env.JWT_SECRET
+      );
+      const [result] = await pool.query(
+        "SELECT * FROM user WHERE user_id = ?",
+        [decoded.id]
+      );
+      if (!result) {
+        return next();
+      }
+      req.user = result[0];
+      return next();
+      
+    } catch (err) {
+      console.log(`Autenticated Fail: ${err}`);
+      res.status(401).json("Autenticated Fail");
+    }
+  } else {
+    res.status(401).json("Autenticación fallida");
+  }
+};
 
-module.exports = { getUser, getSession };
+module.exports = { getUser, getSession, isAutenticated };

@@ -5,7 +5,7 @@ const { getUser, getSession } = require("../controllers/user.controllers");
 
 
 router.get("/users", getUser);
-router.post("/users/:session", getSession);
+router.post("/user/:session", getSession);
 
 
 module.exports = router;
